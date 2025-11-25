@@ -14,113 +14,70 @@ const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
 app.post('/api/create-bundle', async (req, res) => {
   try {
     const products = req.body.products;
-    const globalIds = products.map(p => `gid://shopify/Product/${p.productId}`);
     const mainProductId = `gid://shopify/Product/${req.body.mainProductId}`;
     const mainProductTitle = req.body.mainProductTitle || 'Bundle - Any 5 Pieces - 70% OFF';
 
-    // Build GraphQL query to fetch product options
-    const query = `
-      {
-        ${globalIds.map((id, index) => `
-          product${index}: node(id: "${id}") {
-            ... on Product {
-              id
-              options {
-                id
-                name
-                values
-              }
-              variants(first: 1) {
-                edges {
-                  node {
-                    price
+  const components = products.map(product => ({
+  productId: `gid://shopify/Product/${product.productId}`,
+  quantity: product.quantity,
+  optionSelections: product.options.map(opt => ({
+    componentOptionId: opt.id, // <-- must exist in your input!
+    name: opt.name,
+    values: [opt.value]
+  }))
+}));
+
+// Log all optionSelections for debugging
+components.forEach((c, i) => {
+  console.log(`Component ${i} optionSelections:`, c.optionSelections);
+});
+
+
+   const bundleMutation = `
+  mutation {
+    productBundleUpdate(
+      input: {
+        productId: "${mainProductId}",
+        title: "${mainProductTitle}",
+        components: [
+          ${components.map(component => `
+            {
+              productId: "${component.productId}",
+              quantity: ${component.quantity},
+              optionSelections: [
+                ${component.optionSelections.map(sel => `
+                  {
+                    componentOptionId: "${sel.componentOptionId}",
+                    name: "${sel.name}",
+                    values: ["${sel.values[0]}"]
                   }
-                }
+                `).join(',')}
+              ]
+            }
+          `).join(',')}
+        ]
+      }
+    ) {
+      userErrors {
+        field
+        message
+      }
+      productBundleOperation {
+        product {
+          id
+          variants(first: 1) {
+            edges {
+              node {
+                id
               }
             }
           }
-        `).join('\n')}
+        }
       }
-    `;
+    }
+  }
+`;
 
-    const productResponse = await fetch(SHOPIFY_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
-      },
-      body: JSON.stringify({ query }),
-    });
-
-    const productResult = await productResponse.json();
-    const data = productResult.data;
-
-
-    const components = products.map((product, index) => {
-      const productData = data[`product${index}`];
-      const variant = productData.variants.edges[0].node;
-      const optionSelections = productData.options.map(opt => {
-        const clientOption = product.options?.find(o => o.name.toLowerCase() === opt.name.toLowerCase());
-        return {
-          componentOptionId: opt.id,
-          name: opt.name,
-          values: clientOption ? [clientOption.value] : [opt.values[0]]
-        };
-      });
-
-      return {
-        productId: productData.id,
-        quantity: product.quantity,
-        optionSelections
-      };
-    });
-
-    console.log("data:",data)
-    console.log("components:",components)
-
-    // const bundleMutation = `
-    //   mutation {
-    //     productBundleUpdate(
-    //       input: {
-    //         productId: "${mainProductId}",
-    //         title: "${mainProductTitle}",
-    //         components: [
-    //           ${components.map(component => `
-    //             {
-    //               productId: "${component.productId}",
-    //               quantity: ${component.quantity},
-    //               optionSelections: [
-    //                 ${component.optionSelections.map(selection => `
-    //                   {
-    //                     componentOptionId: "${selection.componentOptionId}",
-    //                     name: "${selection.name}",
-    //                     values: ["${selection.values[0]}"]
-    //                   }
-    //                 `).join(',')}
-    //               ]
-    //             }
-    //           `).join(',')}
-    //         ]
-    //       }
-    //     ) {
-    //       userErrors {
-    //         field
-    //         message
-    //       }
-    //       productBundleOperation {
-    //         product {
-    //           variants(first: 1) {
-    //             edges {
-    //               node { 
-    //                 id
-    //               }
-    //             }
-    //           }
-    //         }
-    //       }
-    //     }
-    //   }
-    // `;
 
     // const bundleMutation = `
     //  mutation {
@@ -160,39 +117,6 @@ app.post('/api/create-bundle', async (req, res) => {
     //   }
     // }
     // `;
-
-
-  const bundleMutation = `
-     mutation {
-      productBundleCreate(
-        input: {
-          title: "Bundle Builder",
-          components: [
-              ${components.map(component => `
-                {
-                  productId: "${component.productId}",
-                  quantity: ${component.quantity},
-                  optionSelections: [
-                    ${component.optionSelections.map(selection => `
-                      {
-                        componentOptionId: "${selection.componentOptionId}",
-                        name: "${selection.name}",
-                        values: ["${selection.values[0]}"]
-                      }
-                    `).join(',')}
-                  ]
-                }
-              `).join(',')}
-          ]
-        }
-      ) {
-        userErrors {
-          field
-          message
-        }
-      }
-    }
-    `;
 
     const bundleResponse = await fetch(SHOPIFY_API_URL, {
       method: 'POST',
