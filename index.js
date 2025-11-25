@@ -75,49 +75,52 @@ app.post('/api/create-bundle', async (req, res) => {
       };
     });
 
-    const bundleMutation = `
-      mutation {
-        productBundleUpdate(
-          input: {
-            productId: "${mainProductId}",
-            title: "${mainProductTitle}",
-            components: [
-              ${components.map(component => `
-                {
-                  productId: "${component.productId}",
-                  quantity: ${component.quantity},
-                  optionSelections: [
-                    ${component.optionSelections.map(selection => `
-                      {
-                        componentOptionId: "${selection.componentOptionId}",
-                        name: "${selection.name}",
-                        values: ["${selection.values[0]}"]
-                      }
-                    `).join(',')}
-                  ]
-                }
-              `).join(',')}
-            ]
-          }
-        ) {
-          userErrors {
-            field
-            message
-          }
-          productBundleOperation {
-            product {
-              variants(first: 1) {
-                edges {
-                  node { 
-                    id
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `;
+    console.log("data:",data)
+    console.log("components:",components)
+
+    // const bundleMutation = `
+    //   mutation {
+    //     productBundleUpdate(
+    //       input: {
+    //         productId: "${mainProductId}",
+    //         title: "${mainProductTitle}",
+    //         components: [
+    //           ${components.map(component => `
+    //             {
+    //               productId: "${component.productId}",
+    //               quantity: ${component.quantity},
+    //               optionSelections: [
+    //                 ${component.optionSelections.map(selection => `
+    //                   {
+    //                     componentOptionId: "${selection.componentOptionId}",
+    //                     name: "${selection.name}",
+    //                     values: ["${selection.values[0]}"]
+    //                   }
+    //                 `).join(',')}
+    //               ]
+    //             }
+    //           `).join(',')}
+    //         ]
+    //       }
+    //     ) {
+    //       userErrors {
+    //         field
+    //         message
+    //       }
+    //       productBundleOperation {
+    //         product {
+    //           variants(first: 1) {
+    //             edges {
+    //               node { 
+    //                 id
+    //               }
+    //             }
+    //           }
+    //         }
+    //       }
+    //     }
+    //   }
+    // `;
 
     // const bundleMutation = `
     //  mutation {
@@ -157,6 +160,39 @@ app.post('/api/create-bundle', async (req, res) => {
     //   }
     // }
     // `;
+
+
+  const bundleMutation = `
+     mutation {
+      productBundleCreate(
+        input: {
+          title: "Bundle Builder",
+          components: [
+              ${components.map(component => `
+                {
+                  productId: "${component.productId}",
+                  quantity: ${component.quantity},
+                  optionSelections: [
+                    ${component.optionSelections.map(selection => `
+                      {
+                        componentOptionId: "${selection.componentOptionId}",
+                        name: "${selection.name}",
+                        values: ["${selection.values[0]}"]
+                      }
+                    `).join(',')}
+                  ]
+                }
+              `).join(',')}
+          ]
+        }
+      ) {
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+    `;
 
     const bundleResponse = await fetch(SHOPIFY_API_URL, {
       method: 'POST',
